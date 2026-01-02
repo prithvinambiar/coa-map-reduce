@@ -1,0 +1,39 @@
+# --- Security (CRITICAL) ---
+.env
+.env.*
+*.key
+secrets.yaml
+
+# --- Python & Runtime ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# --- Virtual Environments (uv creates .venv) ---
+.venv/
+venv/
+env/
+ENV/
+
+# --- IDEs & Editors ---
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# --- Project Specific (Data & Local DBs) ---
+# Don't commit the YouTube transcripts or PDFs
+data/
+downloads/
+notebooks/*.ipynb_checkpoints/
+
+# Vector DB persistence (if you use Chroma later)
+chroma_db/
+faiss_index/
+
+# --- Build & Distribution ---
+dist/
+build/
+*.egg-info/

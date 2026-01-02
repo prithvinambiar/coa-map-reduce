@@ -1,7 +1,7 @@
 [project]
 name = "coa-map-reduce"
 version = "0.1.0"
-description = "Add your description here"
+description = "Optimized Hierarchical Chain of Agents Framework"
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = []
