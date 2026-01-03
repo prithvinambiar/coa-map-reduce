@@ -1,7 +1,14 @@
 [project]
 name = "coa-map-reduce"
 version = "0.1.0"
-description = "Optimized Hierarchical Chain of Agents Framework"
+description = "Optimized Chain of Agents Framework"
 readme = "README.md"
 requires-python = ">=3.9"
-dependencies = []
+dependencies = [
+    "datasets",
+    "pydantic>=2.12.5",
+]
+
+[[tool.uv.index]]
+url = "https://pypi.org/simple"
+default = true
