@@ -7,6 +7,7 @@ requires-python = ">=3.9"
 dependencies = [
     "datasets",
     "pydantic>=2.12.5",
+    "google-genai",
 ]
 
 [[tool.uv.index]]
