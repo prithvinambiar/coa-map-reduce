@@ -1,6 +1,6 @@
 import unittest
 from unittest.mock import patch
-from src.baseline.dataset import load_hotpot_qa_eval, HotpotQAExample
+from src.core.dataset import load_hotpot_qa_eval, HotpotQAExample
 
 
 class TestDataset(unittest.TestCase):
