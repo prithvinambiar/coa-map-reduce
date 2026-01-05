@@ -10,10 +10,10 @@ from google import genai
 
 
 class WorkerAgent:
-    def __init__(self, model_name: str = "gemini-1.5-flash"):
+    def __init__(self, model_name: str = "gemini-flash-latest"):
         """
         Initializes the Worker Agent.
-        We use gemini-1.5-flash by default as it is efficient for sequential worker tasks.
+        We use gemini-flash-latest by default as it is efficient for sequential worker tasks.
         """
         api_key = os.getenv("GOOGLE_API_KEY")
         if not api_key:

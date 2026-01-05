@@ -6,9 +6,7 @@ It concatenates all available paragraphs and prompts the Gemini model to answer 
 import argparse
 import os
 from google import genai
-from src.core.dataset import HotpotQAExample, load_hotpot_qa_eval
-from src.core.metrics import PerformanceMetric
-from src.core.evaluation import evaluate
+from src.core.dataset import HotpotQAExample
 
 
 class FullContextBaseline:
@@ -69,4 +67,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     baseline = FullContextBaseline()
-    evaluate(baseline, args.num_samples)
+    
