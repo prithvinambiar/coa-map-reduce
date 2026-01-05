@@ -3,9 +3,11 @@ This module implements a baseline solution for HotpotQA using the full context.
 It concatenates all available paragraphs and prompts the Gemini model to answer the question.
 """
 
+import argparse
 import os
 from google import genai
 from src.core.dataset import HotpotQAExample, load_hotpot_qa_eval
+from src.core.metrics import exact_match_score, f1_score, PerformanceMetric
 
 
 class FullContextBaseline:
@@ -58,15 +60,48 @@ class FullContextBaseline:
         return ""
 
 
-if __name__ == "__main__":
-    # Simple test run
+def evaluate(num_samples: int) -> PerformanceMetric:
     baseline = FullContextBaseline()
     dataset = load_hotpot_qa_eval()
 
-    # Get first example
-    example = next(dataset)
-    print(f"Question: {example.question}")
-    print(f"Gold Answer: {example.answer}")
+    total_em = 0.0
+    total_f1 = 0.0
 
-    prediction = baseline.predict(example)
-    print(f"Prediction: {prediction}")
+    print(f"Running evaluation on {num_samples} samples...")
+
+    for i in range(num_samples):
+        try:
+            example = next(dataset)
+        except StopIteration:
+            print(f"Dataset exhausted at {i} samples.")
+            num_samples = i
+            break
+
+        prediction = baseline.predict(example)
+        em = exact_match_score(prediction, example.answer)
+        f1 = f1_score(prediction, example.answer)
+
+        total_em += em
+        total_f1 += f1
+
+        print(
+            f"[{i + 1}] EM: {em} | F1: {f1:.4f} | Pred: {prediction} | Gold: {example.answer}"
+        )
+
+    avg_em = total_em / num_samples if num_samples > 0 else 0.0
+    avg_f1 = total_f1 / num_samples if num_samples > 0 else 0.0
+
+    print(f"\nAverage EM: {avg_em:.4f}")
+    print(f"Average F1: {avg_f1:.4f}")
+
+    return PerformanceMetric(em=avg_em, f1=avg_f1)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Run baseline evaluation.")
+    parser.add_argument(
+        "--num_samples", type=int, default=10, help="Number of samples to evaluate"
+    )
+    args = parser.parse_args()
+
+    evaluate(args.num_samples)

@@ -2,6 +2,8 @@ import unittest
 from unittest.mock import patch, MagicMock
 import os
 from src.core.full_context_baseline import FullContextBaseline
+import io
+from src.core.full_context_baseline import FullContextBaseline, evaluate
 from src.core.dataset import HotpotQAExample, HotpotQAContext
 
 
@@ -71,6 +73,28 @@ class TestFullContextBaseline(unittest.TestCase):
         mock_client_instance.models.generate_content.assert_called_once()
         call_args = mock_client_instance.models.generate_content.call_args
         self.assertIn("What is X?", call_args.kwargs["contents"])
+
+    @patch("src.core.full_context_baseline.load_hotpot_qa_eval")
+    @patch("src.core.full_context_baseline.FullContextBaseline")
+    def test_evaluate(self, mock_baseline_cls, mock_load_dataset):
+        # Mock dataset with 2 examples
+        mock_example_1 = MagicMock()
+        mock_example_1.answer = "Apple"
+        mock_example_2 = MagicMock()
+        mock_example_2.answer = "Banana"
+        mock_load_dataset.return_value = iter([mock_example_1, mock_example_2])
+
+        # Mock baseline instance
+        mock_instance = mock_baseline_cls.return_value
+        # Predict: 1st Correct (EM=1), 2nd Incorrect (EM=0)
+        mock_instance.predict.side_effect = ["Apple", "Orange"]
+
+        metrics = evaluate(num_samples=2)
+
+        self.assertEqual(mock_instance.predict.call_count, 2)
+        # Avg EM: (1.0 + 0.0) / 2 = 0.5
+        self.assertEqual(metrics.em, 0.5)
+        self.assertEqual(metrics.f1, 0.5)
 
 
 if __name__ == "__main__":

@@ -8,6 +8,7 @@ HotpotQA.
 import string
 import re
 from collections import Counter
+from pydantic import BaseModel
 
 
 def normalize_answer(s: str) -> str:
@@ -55,3 +56,8 @@ def f1_score(prediction: str, ground_truth: str) -> float:
     recall = 1.0 * num_same / len(ground_truth_tokens)
     f1 = (2 * precision * recall) / (precision + recall)
     return f1
+
+
+class PerformanceMetric(BaseModel):
+    em: float
+    f1: float
