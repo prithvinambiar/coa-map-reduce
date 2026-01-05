@@ -1,8 +1,6 @@
 import unittest
 from unittest.mock import patch, MagicMock
 import os
-from src.core.full_context_baseline import FullContextBaseline
-import io
 from src.core.full_context_baseline import FullContextBaseline, evaluate
 from src.core.dataset import HotpotQAExample, HotpotQAContext
 
@@ -74,9 +72,10 @@ class TestFullContextBaseline(unittest.TestCase):
         call_args = mock_client_instance.models.generate_content.call_args
         self.assertIn("What is X?", call_args.kwargs["contents"])
 
+    @patch("src.core.full_context_baseline.time")
     @patch("src.core.full_context_baseline.load_hotpot_qa_eval")
     @patch("src.core.full_context_baseline.FullContextBaseline")
-    def test_evaluate(self, mock_baseline_cls, mock_load_dataset):
+    def test_evaluate(self, mock_baseline_cls, mock_load_dataset, mock_time):
         # Mock dataset with 2 examples
         mock_example_1 = MagicMock()
         mock_example_1.answer = "Apple"
@@ -88,6 +87,9 @@ class TestFullContextBaseline(unittest.TestCase):
         mock_instance = mock_baseline_cls.return_value
         # Predict: 1st Correct (EM=1), 2nd Incorrect (EM=0)
         mock_instance.predict.side_effect = ["Apple", "Orange"]
+
+        # Mock time to simulate latency: 1s for first, 2s for second
+        mock_time.time.side_effect = [100.0, 101.0, 200.0, 202.0]
 
         metrics = evaluate(num_samples=2)
 

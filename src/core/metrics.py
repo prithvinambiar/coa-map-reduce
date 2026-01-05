@@ -61,3 +61,4 @@ def f1_score(prediction: str, ground_truth: str) -> float:
 class PerformanceMetric(BaseModel):
     em: float
     f1: float
+    latency: float

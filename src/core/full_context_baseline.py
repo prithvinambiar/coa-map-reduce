@@ -5,6 +5,7 @@ It concatenates all available paragraphs and prompts the Gemini model to answer 
 
 import argparse
 import os
+import time
 from google import genai
 from src.core.dataset import HotpotQAExample, load_hotpot_qa_eval
 from src.core.metrics import exact_match_score, f1_score, PerformanceMetric
@@ -66,6 +67,7 @@ def evaluate(num_samples: int) -> PerformanceMetric:
 
     total_em = 0.0
     total_f1 = 0.0
+    total_latency = 0.0
 
     print(f"Running evaluation on {num_samples} samples...")
 
@@ -77,24 +79,31 @@ def evaluate(num_samples: int) -> PerformanceMetric:
             num_samples = i
             break
 
+        start_time = time.time()
         prediction = baseline.predict(example)
+        end_time = time.time()
+        latency = end_time - start_time
+
         em = exact_match_score(prediction, example.answer)
         f1 = f1_score(prediction, example.answer)
 
         total_em += em
         total_f1 += f1
+        total_latency += latency
 
         print(
-            f"[{i + 1}] EM: {em} | F1: {f1:.4f} | Pred: {prediction} | Gold: {example.answer}"
+            f"[{i + 1}] EM: {em} | F1: {f1:.4f} | Latency: {latency:.2f}s | Pred: {prediction} | Gold: {example.answer}"
         )
 
     avg_em = total_em / num_samples if num_samples > 0 else 0.0
     avg_f1 = total_f1 / num_samples if num_samples > 0 else 0.0
+    avg_latency = total_latency / num_samples if num_samples > 0 else 0.0
 
     print(f"\nAverage EM: {avg_em:.4f}")
     print(f"Average F1: {avg_f1:.4f}")
+    print(f"Average Latency: {avg_latency:.4f}s")
 
-    return PerformanceMetric(em=avg_em, f1=avg_f1)
+    return PerformanceMetric(em=avg_em, f1=avg_f1, latency=avg_latency)
 
 
 if __name__ == "__main__":
