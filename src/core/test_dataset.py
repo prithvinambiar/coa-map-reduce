@@ -4,7 +4,7 @@ from src.core.dataset import load_hotpot_qa_eval, HotpotQAExample
 
 
 class TestDataset(unittest.TestCase):
-    @patch("src.baseline.dataset.load_dataset")
+    @patch("src.core.dataset.load_dataset")
     def test_load_hotpot_qa_eval(self, mock_load_dataset):
         # Mock data simulating the structure returned by the datasets library
         # We include extra fields (like 'type', 'level') to ensure the model handles them (ignores them)
