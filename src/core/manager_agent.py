@@ -37,8 +37,14 @@ class ManagerAgent:
             response = self.client.models.generate_content(
                 model=self.model_name, contents=prompt
             )
-            if response and response.text:
-                return response.text.strip()
+            if not response or not response.candidates:
+                return ""
+            content = response.candidates[0].content
+            if not content or not content.parts:
+                return ""
+            text_result = "".join(part.text for part in content.parts if part.text)
+            if text_result:
+                return text_result.strip()
         except Exception as e:
             print(f"Error in ManagerAgent: {e}")
 
