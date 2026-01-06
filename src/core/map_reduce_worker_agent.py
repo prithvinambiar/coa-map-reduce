@@ -19,7 +19,7 @@ class MapReduceWorkerAgent:
         self.client = genai.Client(api_key=api_key)
         self.model_name = model_name
 
-    def process(self, chunk: str, question: str) -> str:
+    async def process(self, chunk: str, question: str) -> str:
         """
         Processes a chunk of text and extracts relevant information.
         Args:
@@ -31,7 +31,7 @@ class MapReduceWorkerAgent:
         prompt = self._build_prompt(chunk, question)
 
         try:
-            response = self.client.models.generate_content(
+            response = await self.client.aio.models.generate_content(
                 model=self.model_name, contents=prompt
             )
             if not response or not response.candidates:
