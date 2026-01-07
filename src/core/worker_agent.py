@@ -14,7 +14,6 @@ class WorkerAgent:
     def __init__(
         self,
         model_name: str = "gemini-flash-latest",
-        client: Optional[genai.Client] = None,
     ):
         """
         Initializes the Worker Agent.
@@ -26,13 +25,10 @@ class WorkerAgent:
         """
         self.model_name = model_name
 
-        if client:
-            self.client = client
-        else:
-            api_key = os.getenv("GOOGLE_API_KEY")
-            if not api_key:
-                raise ValueError("Please set the GOOGLE_API_KEY environment variable.")
-            self.client = genai.Client(api_key=api_key)
+        api_key = os.getenv("GOOGLE_API_KEY")
+        if not api_key:
+            raise ValueError("Please set the GOOGLE_API_KEY environment variable.")
+        self.client = genai.Client(api_key=api_key)
 
     def _build_prompt(self, chunk: str, question: str, previous_cu: str) -> str:
         return (
