@@ -1,34 +1,23 @@
 """
 This module implements the Worker Agent for the Chain of Agents framework.
-The Worker Agent processes a chunk of context along with the
-'Communication Unit' (CU) passed from the previous agent, and generates an
-updated CU.
 """
 
 import os
-from typing import Optional
 from google import genai
 
 
 class WorkerAgent:
-    def __init__(
-        self,
-        model_name: str = "gemini-flash-latest",
-    ):
+    def __init__(self, model_name: str = "gemini-flash-latest"):
         """
-        Initializes the Worker Agent.
-
-        Args:
-            model_name: The Gemini model to use.
-            client: Optional shared genai.Client instance. If None, a new one is created.
-                    Passing a shared client is recommended for high-performance async loops.
+        Initializes the Worker Agent with its own independent client.
         """
-        self.model_name = model_name
-
         api_key = os.getenv("GOOGLE_API_KEY")
         if not api_key:
             raise ValueError("Please set the GOOGLE_API_KEY environment variable.")
+
+        # Instantiate a new client specifically for this agent
         self.client = genai.Client(api_key=api_key)
+        self.model_name = model_name
 
     def _build_prompt(self, chunk: str, question: str, previous_cu: str) -> str:
         return (
@@ -41,7 +30,7 @@ class WorkerAgent:
         )
 
     def process(self, chunk: str, question: str, previous_cu: str = "") -> str:
-        """Synchronous version for sequential/legacy execution."""
+        """Synchronous version."""
         prompt = self._build_prompt(chunk, question, previous_cu)
         try:
             response = self.client.models.generate_content(
@@ -52,26 +41,20 @@ class WorkerAgent:
             print(f"Error in WorkerAgent (Sync): {e}")
             return previous_cu
 
-    async def async_process(
-        self, chunk: str, question: str, previous_cu: str = ""
-    ) -> str:
-        """
-        Asynchronous version for high-concurrency pipelines.
-        """
+    async def aprocess(self, chunk: str, question: str, previous_cu: str = "") -> str:
+        """Asynchronous version."""
         prompt = self._build_prompt(chunk, question, previous_cu)
         try:
-            # Use the .aio accessor for async operations
+            # Uses the agent's own client
             response = await self.client.aio.models.generate_content(
                 model=self.model_name, contents=prompt
             )
             return self._parse_response(response, previous_cu)
         except Exception as e:
-            # Observability: Print the error but return previous state to keep chain alive
             print(f"Error in WorkerAgent (Async): {e}")
             return previous_cu
 
     def _parse_response(self, response, fallback: str) -> str:
-        """Helper to parse the GenAI response safely."""
         if not response or not response.candidates:
             return fallback
         content = response.candidates[0].content
