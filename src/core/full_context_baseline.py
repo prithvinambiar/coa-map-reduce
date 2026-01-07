@@ -20,8 +20,10 @@ class AsyncFullContextBaseline:
         api_key = os.getenv("GOOGLE_API_KEY")
         if not api_key:
             raise ValueError("Please set the GOOGLE_API_KEY environment variable.")
+        self.api_key = api_key
 
-        self.client = genai.Client(api_key=api_key)
+        # Creating it here binds it to the main thread (no loop), causing the error later.
+        self.client = None
         self.model_name = model_name
         self.max_concurrency = max_concurrency
 
@@ -81,6 +83,8 @@ class AsyncFullContextBaseline:
         return ""
 
     async def run_batch(self, samples: List[HotpotQAExample]):
+        # This ensures the internal aiohttp session attaches to the correct loop.
+        self.client = genai.Client(api_key=self.api_key)
         tasks = [self.predict_async(sample) for sample in samples]
         print(f"🚀 Starting parallel processing of {len(samples)} samples...")
         results = await asyncio.gather(*tasks)

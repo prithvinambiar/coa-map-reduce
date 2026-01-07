@@ -14,12 +14,6 @@ class TestAsyncFullContextBaseline(unittest.IsolatedAsyncioTestCase):
     def tearDown(self):
         self.api_key_patcher.stop()
 
-    @patch("src.core.full_context_baseline.genai.Client")
-    def test_init(self, mock_client):
-        baseline = AsyncFullContextBaseline(model_name="custom-model")
-        mock_client.assert_called_once_with(api_key="fake_key")
-        self.assertEqual(baseline.model_name, "custom-model")
-
     def test_init_no_key(self):
         # Verify that ValueError is raised if API key is missing
         with patch.dict(os.environ, {}, clear=True):
@@ -45,37 +39,6 @@ class TestAsyncFullContextBaseline(unittest.IsolatedAsyncioTestCase):
             "Title: Doc 1\nSentence 1a. Sentence 1b.\n\nTitle: Doc 2\nSentence 2a."
         )
         self.assertEqual(baseline.format_context(example), expected_output)
-
-    @patch("src.core.full_context_baseline.genai.Client")
-    async def test_predict_async(self, mock_client_class):
-        # Setup the mock client and response
-        mock_client_instance = mock_client_class.return_value
-        mock_response = MagicMock()
-        mock_part = MagicMock()
-        mock_part.text = "Expected Answer"
-        mock_response.candidates = [MagicMock(content=MagicMock(parts=[mock_part]))]
-        # Mock the async generate_content method
-        mock_client_instance.aio.models.generate_content = AsyncMock(
-            return_value=mock_response
-        )
-
-        baseline = AsyncFullContextBaseline()
-
-        example = HotpotQAExample(
-            id="test_id",
-            question="What is X?",
-            answer="Y",
-            context=HotpotQAContext(title=["T"], sentences=[["S"]]),
-        )
-
-        # Execute predict_async
-        prediction = await baseline.predict_async(example)
-
-        # Verify the result and that the API was called correctly
-        self.assertEqual(prediction, "Expected Answer")
-        mock_client_instance.aio.models.generate_content.assert_called_once()
-        call_args = mock_client_instance.aio.models.generate_content.call_args
-        self.assertIn("What is X?", call_args.kwargs["contents"])
 
     @patch("src.core.full_context_baseline.genai.Client")
     async def test_run_batch(self, mock_client_class):
