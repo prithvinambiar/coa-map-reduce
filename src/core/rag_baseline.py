@@ -27,9 +27,6 @@ class RagBaseline:
         if not self.api_key:
             raise ValueError("Please set the GOOGLE_API_KEY environment variable.")
 
-        # Initialize client to None; it will be created inside the running event loop
-        self.client: Optional[genai.Client] = None
-
         self.model_name = model_name
         self.embedding_model = embedding_model
         self.max_concurrency = max_concurrency
@@ -69,8 +66,8 @@ class RagBaseline:
         inputs = [example.question] + docs
 
         try:
-            # We assume self.client is initialized by run_batch before this is called
-            result = await self.client.aio.models.embed_content(
+            client = genai.Client(api_key=self.api_key)
+            result = await client.aio.models.embed_content(
                 model=self.embedding_model, contents=inputs
             )
         except Exception as e:
@@ -119,7 +116,8 @@ class RagBaseline:
 
             # 3. Generate Answer
             try:
-                response = await self.client.aio.models.generate_content(
+                client = genai.Client(api_key=self.api_key)
+                response = await client.aio.models.generate_content(
                     model=self.model_name, contents=prompt
                 )
                 if not response or not response.candidates:
@@ -139,9 +137,6 @@ class RagBaseline:
 
     async def run_batch(self, samples: List[HotpotQAExample]):
         """Runs prediction on a list of samples in parallel."""
-        # Initialize the client INSIDE the loop to avoid 'Unclosed connector' errors
-        self.client = genai.Client(api_key=self.api_key)
-
         tasks = [self.predict_async(sample) for sample in samples]
         print(f"🚀 Starting RAG processing of {len(samples)} samples...")
 

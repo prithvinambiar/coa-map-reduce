@@ -15,7 +15,8 @@ class TestRagBaseline(unittest.IsolatedAsyncioTestCase):
     def tearDown(self):
         self.api_key_patcher.stop()
 
-    async def test_retrieve_async(self):
+    @patch("src.core.rag_baseline.genai.Client")
+    async def test_retrieve_async(self, mock_client_class):
         """
         Tests that retrieve_async correctly calculates cosine similarity
         and selects the top-k documents.
@@ -23,7 +24,7 @@ class TestRagBaseline(unittest.IsolatedAsyncioTestCase):
         rag = RagBaseline()
 
         # 1. Setup Mock Client
-        mock_client = MagicMock()
+        mock_client = mock_client_class.return_value
         mock_response = MagicMock()
 
         # We simulate 1 question and 3 documents
@@ -39,9 +40,6 @@ class TestRagBaseline(unittest.IsolatedAsyncioTestCase):
             MagicMock(values=[0.707, 0.707]),  # Doc 3
         ]
         mock_client.aio.models.embed_content = AsyncMock(return_value=mock_response)
-
-        # Inject the mock client manually (since we aren't calling run_batch)
-        rag.client = mock_client
 
         example = HotpotQAExample(
             id="test",
@@ -66,17 +64,17 @@ class TestRagBaseline(unittest.IsolatedAsyncioTestCase):
         # Expecting inputs = [Question, Doc1, Doc2, Doc3]
         self.assertEqual(len(call_args.kwargs["contents"]), 4)
 
-    async def test_retrieve_async_failure(self):
+    @patch("src.core.rag_baseline.genai.Client")
+    async def test_retrieve_async_failure(self, mock_client_class):
         """Test handling of API failure where embeddings are None or error occurs."""
         rag = RagBaseline()
-        mock_client = MagicMock()
+        mock_client = mock_client_class.return_value
 
         # Simulate empty response
         mock_response = MagicMock()
         mock_response.embeddings = None
         mock_client.aio.models.embed_content = AsyncMock(return_value=mock_response)
 
-        rag.client = mock_client
         example = HotpotQAExample(
             id="test",
             question="Q",
@@ -87,10 +85,11 @@ class TestRagBaseline(unittest.IsolatedAsyncioTestCase):
         context = await rag.retrieve_async(example)
         self.assertEqual(context, "")
 
-    async def test_predict_async(self):
+    @patch("src.core.rag_baseline.genai.Client")
+    async def test_predict_async(self, mock_client_class):
         """Test the full flow: Retrieval -> Prompt -> Generation."""
         rag = RagBaseline()
-        rag.client = MagicMock()
+        mock_client = mock_client_class.return_value
 
         # 1. Mock Retrieval (Mocking the method directly to isolate generation logic)
         rag.retrieve_async = AsyncMock(return_value="Mocked Context")
@@ -100,7 +99,7 @@ class TestRagBaseline(unittest.IsolatedAsyncioTestCase):
         mock_part = MagicMock()
         mock_part.text = "Generated Answer"
         mock_gen_response.candidates = [MagicMock(content=MagicMock(parts=[mock_part]))]
-        rag.client.aio.models.generate_content = AsyncMock(
+        mock_client.aio.models.generate_content = AsyncMock(
             return_value=mock_gen_response
         )
 
@@ -117,10 +116,10 @@ class TestRagBaseline(unittest.IsolatedAsyncioTestCase):
         # 4. Verify
         self.assertEqual(result, "Generated Answer")
         rag.retrieve_async.assert_called_once()
-        rag.client.aio.models.generate_content.assert_called_once()
+        mock_client.aio.models.generate_content.assert_called_once()
 
         # Verify prompt construction
-        call_args = rag.client.aio.models.generate_content.call_args
+        call_args = mock_client.aio.models.generate_content.call_args
         prompt_sent = call_args.kwargs["contents"]
         self.assertIn("Mocked Context", prompt_sent)
 

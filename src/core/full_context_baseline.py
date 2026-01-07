@@ -22,8 +22,6 @@ class AsyncFullContextBaseline:
             raise ValueError("Please set the GOOGLE_API_KEY environment variable.")
         self.api_key = api_key
 
-        # Creating it here binds it to the main thread (no loop), causing the error later.
-        self.client = None
         self.model_name = model_name
         self.max_concurrency = max_concurrency
 
@@ -64,7 +62,8 @@ class AsyncFullContextBaseline:
         # FIX: Access the property self.semaphore (which triggers the lazy load)
         async with self.semaphore:
             try:
-                response = await self.client.aio.models.generate_content(
+                client = genai.Client(api_key=self.api_key)
+                response = await client.aio.models.generate_content(
                     model=self.model_name, contents=prompt
                 )
                 if not response or not response.candidates:
@@ -83,8 +82,6 @@ class AsyncFullContextBaseline:
         return ""
 
     async def run_batch(self, samples: List[HotpotQAExample]):
-        # This ensures the internal aiohttp session attaches to the correct loop.
-        self.client = genai.Client(api_key=self.api_key)
         tasks = [self.predict_async(sample) for sample in samples]
         print(f"🚀 Starting parallel processing of {len(samples)} samples...")
         results = await asyncio.gather(*tasks)
