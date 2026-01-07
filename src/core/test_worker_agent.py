@@ -17,7 +17,9 @@ class TestWorkerAgent(unittest.TestCase):
         # Test the first worker in the chain (empty previous_cu)
         mock_client = mock_client_cls.return_value
         mock_response = MagicMock()
-        mock_response.text = "Found answer X."
+        mock_part = MagicMock()
+        mock_part.text = "Found answer X."
+        mock_response.candidates = [MagicMock(content=MagicMock(parts=[mock_part]))]
         mock_client.models.generate_content.return_value = mock_response
 
         agent = WorkerAgent()
@@ -34,7 +36,9 @@ class TestWorkerAgent(unittest.TestCase):
         # Test a subsequent worker (existing previous_cu)
         mock_client = mock_client_cls.return_value
         mock_response = MagicMock()
-        mock_response.text = "Found answer X and Y."
+        mock_part = MagicMock()
+        mock_part.text = "Found answer X and Y."
+        mock_response.candidates = [MagicMock(content=MagicMock(parts=[mock_part]))]
         mock_client.models.generate_content.return_value = mock_response
 
         agent = WorkerAgent()

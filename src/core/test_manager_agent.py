@@ -16,7 +16,9 @@ class TestManagerAgent(unittest.TestCase):
     def test_generate_answer(self, mock_client_cls):
         mock_client = mock_client_cls.return_value
         mock_response = MagicMock()
-        mock_response.text = "Final Answer"
+        mock_part = MagicMock()
+        mock_part.text = "Final Answer"
+        mock_response.candidates = [MagicMock(content=MagicMock(parts=[mock_part]))]
         mock_client.models.generate_content.return_value = mock_response
 
         agent = ManagerAgent()
