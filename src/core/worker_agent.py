@@ -6,52 +6,33 @@ updated CU.
 """
 
 import os
+from typing import Optional
 from google import genai
 
 
 class WorkerAgent:
-    def __init__(self, model_name: str = "gemini-flash-latest"):
+    def __init__(
+        self,
+        model_name: str = "gemini-flash-latest",
+        client: Optional[genai.Client] = None,
+    ):
         """
         Initializes the Worker Agent.
-        We use gemini-flash-latest by default as it is efficient for sequential worker tasks.
-        """
-        api_key = os.getenv("GOOGLE_API_KEY")
-        if not api_key:
-            raise ValueError("Please set the GOOGLE_API_KEY environment variable.")
-
-        self.client = genai.Client(api_key=api_key)
-        self.model_name = model_name
-
-    def process(self, chunk: str, question: str, previous_cu: str = "") -> str:
-        """
-        Processes a chunk of text and updates the communication unit (CU).
 
         Args:
-            chunk: The current text chunk (e.g., a paragraph).
-            question: The user's question.
-            previous_cu: The communication unit from the previous worker (summary of findings so far).
-
-        Returns:
-            The updated communication unit.
+            model_name: The Gemini model to use.
+            client: Optional shared genai.Client instance. If None, a new one is created.
+                    Passing a shared client is recommended for high-performance async loops.
         """
-        prompt = self._build_prompt(chunk, question, previous_cu)
+        self.model_name = model_name
 
-        try:
-            response = self.client.models.generate_content(
-                model=self.model_name, contents=prompt
-            )
-            if not response or not response.candidates:
-                return previous_cu
-            content = response.candidates[0].content
-            if not content or not content.parts:
-                return previous_cu
-            text_result = "".join(part.text for part in content.parts if part.text)
-            if text_result:
-                return text_result.strip()
-        except Exception as e:
-            print(f"Error in WorkerAgent: {e}")
-
-        return previous_cu
+        if client:
+            self.client = client
+        else:
+            api_key = os.getenv("GOOGLE_API_KEY")
+            if not api_key:
+                raise ValueError("Please set the GOOGLE_API_KEY environment variable.")
+            self.client = genai.Client(api_key=api_key)
 
     def _build_prompt(self, chunk: str, question: str, previous_cu: str) -> str:
         return (
@@ -62,3 +43,43 @@ class WorkerAgent:
             f"Current Chunk:\n{chunk}\n\n"
             "Output the updated Communication Unit. If the chunk is irrelevant, output the Previous Communication Unit exactly."
         )
+
+    def process(self, chunk: str, question: str, previous_cu: str = "") -> str:
+        """Synchronous version for sequential/legacy execution."""
+        prompt = self._build_prompt(chunk, question, previous_cu)
+        try:
+            response = self.client.models.generate_content(
+                model=self.model_name, contents=prompt
+            )
+            return self._parse_response(response, previous_cu)
+        except Exception as e:
+            print(f"Error in WorkerAgent (Sync): {e}")
+            return previous_cu
+
+    async def async_process(
+        self, chunk: str, question: str, previous_cu: str = ""
+    ) -> str:
+        """
+        Asynchronous version for high-concurrency pipelines.
+        """
+        prompt = self._build_prompt(chunk, question, previous_cu)
+        try:
+            # Use the .aio accessor for async operations
+            response = await self.client.aio.models.generate_content(
+                model=self.model_name, contents=prompt
+            )
+            return self._parse_response(response, previous_cu)
+        except Exception as e:
+            # Observability: Print the error but return previous state to keep chain alive
+            print(f"Error in WorkerAgent (Async): {e}")
+            return previous_cu
+
+    def _parse_response(self, response, fallback: str) -> str:
+        """Helper to parse the GenAI response safely."""
+        if not response or not response.candidates:
+            return fallback
+        content = response.candidates[0].content
+        if not content or not content.parts:
+            return fallback
+        text_result = "".join(part.text for part in content.parts if part.text)
+        return text_result.strip() if text_result else fallback

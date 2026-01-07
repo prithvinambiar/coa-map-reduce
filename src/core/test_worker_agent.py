@@ -1,10 +1,10 @@
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, AsyncMock
 import os
 from src.core.worker_agent import WorkerAgent
 
 
-class TestWorkerAgent(unittest.TestCase):
+class TestWorkerAgent(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.patcher = patch.dict(os.environ, {"GOOGLE_API_KEY": "fake_key"})
         self.patcher.start()
@@ -49,6 +49,35 @@ class TestWorkerAgent(unittest.TestCase):
             "Previous Communication Unit:\nFound answer X.",
             mock_client.models.generate_content.call_args.kwargs["contents"],
         )
+
+    @patch("src.core.worker_agent.genai.Client")
+    async def test_aprocess(self, mock_client_cls):
+        # Test async processing
+        mock_client = mock_client_cls.return_value
+        mock_response = MagicMock()
+        mock_part = MagicMock()
+        mock_part.text = "Async Result"
+        mock_response.candidates = [MagicMock(content=MagicMock(parts=[mock_part]))]
+        mock_client.aio.models.generate_content = AsyncMock(return_value=mock_response)
+
+        agent = WorkerAgent()
+        result = await agent.async_process("Chunk", "Question", "Prev")
+
+        self.assertEqual(result, "Async Result")
+        mock_client.aio.models.generate_content.assert_called_once()
+
+    @patch("src.core.worker_agent.genai.Client")
+    async def test_aprocess_exception(self, mock_client_cls):
+        # Test async exception handling
+        mock_client = mock_client_cls.return_value
+        mock_client.aio.models.generate_content = AsyncMock(
+            side_effect=Exception("Async Error")
+        )
+
+        agent = WorkerAgent()
+        result = await agent.async_process("Chunk", "Question", "Prev")
+
+        self.assertEqual(result, "Prev")
 
 
 if __name__ == "__main__":
