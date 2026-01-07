@@ -84,7 +84,9 @@ class TestRagBaseline(unittest.TestCase):
             rag, "retrieve", return_value="Mock Context"
         ) as mock_retrieve:
             mock_response = MagicMock()
-            mock_response.text = "Mock Answer"
+            mock_part = MagicMock()
+            mock_part.text = "Mock Answer"
+            mock_response.candidates = [MagicMock(content=MagicMock(parts=[mock_part]))]
             mock_client.models.generate_content.return_value = mock_response
 
             example = HotpotQAExample(

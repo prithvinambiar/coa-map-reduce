@@ -7,11 +7,11 @@ Gemini model to answer the question based on the retrieved context.
 import argparse
 import numpy as np
 from src.core.dataset import HotpotQAExample
-from src.core.full_context_baseline import FullContextBaseline
+from src.core.full_context_baseline import AsyncFullContextBaseline
 from src.core.evaluation import evaluate
 
 
-class RagBaseline(FullContextBaseline):
+class RagBaseline(AsyncFullContextBaseline):
     def __init__(
         self,
         model_name: str = "gemini-flash-latest",
@@ -69,8 +69,14 @@ class RagBaseline(FullContextBaseline):
         response = self.client.models.generate_content(
             model=self.model_name, contents=prompt
         )
-        if response and response.text:
-            return response.text.strip()
+        if not response or not response.candidates:
+            return ""
+        content = response.candidates[0].content
+        if not content or not content.parts:
+            return ""
+        text_result = "".join(part.text for part in content.parts if part.text)
+        if text_result:
+            return text_result.strip()
         return ""
 
 
