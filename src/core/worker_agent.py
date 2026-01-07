@@ -41,7 +41,7 @@ class WorkerAgent:
             print(f"Error in WorkerAgent (Sync): {e}")
             return previous_cu
 
-    async def aprocess(self, chunk: str, question: str, previous_cu: str = "") -> str:
+    async def async_process(self, chunk: str, question: str, previous_cu: str = "") -> str:
         """Asynchronous version."""
         prompt = self._build_prompt(chunk, question, previous_cu)
         try:
