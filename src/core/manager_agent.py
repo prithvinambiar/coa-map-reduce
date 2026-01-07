@@ -41,7 +41,7 @@ class ManagerAgent:
             print(f"Error in ManagerAgent (Sync): {e}")
             return ""
 
-    async def agenerate_answer(self, question: str, final_cu: str) -> str:
+    async def async_generate_answer(self, question: str, final_cu: str) -> str:
         """Asynchronous version."""
         prompt = self._build_prompt(question, final_cu)
         try:
