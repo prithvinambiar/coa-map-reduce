@@ -1,16 +1,14 @@
 """
 Optimized Async Chain of Agents (CoA) Baseline.
-Executes multiple samples in parallel batches, but maintains the 
-sequential 'chaining' logic within each specific sample.
+Executes multiple samples in parallel batches, utilizing independent
+Worker and Manager agents.
 """
 
 import argparse
 import asyncio
-import os
 from itertools import islice
 from typing import List, Optional
 
-from google import genai
 from src.core.dataset import HotpotQAExample, load_hotpot_qa_eval
 from src.core.worker_agent import WorkerAgent
 from src.core.manager_agent import ManagerAgent
@@ -24,15 +22,9 @@ class AsyncCoABaseline:
         manager_model: str = "gemini-flash-latest",
         max_concurrency: int = 5,
     ):
-        self.api_key = os.getenv("GOOGLE_API_KEY")
-        if not self.api_key:
-            raise ValueError("Please set the GOOGLE_API_KEY environment variable.")
-
         self.worker_model = worker_model
         self.manager_model = manager_model
         self.max_concurrency = max_concurrency
-        
-        # Lazy load semaphore
         self._semaphore: Optional[asyncio.Semaphore] = None
 
     @property
@@ -49,10 +41,7 @@ class AsyncCoABaseline:
         return chunks
 
     async def predict_async(
-        self, 
-        example: HotpotQAExample, 
-        worker: WorkerAgent, 
-        manager: ManagerAgent
+        self, example: HotpotQAExample, worker: WorkerAgent, manager: ManagerAgent
     ) -> str:
         """
         Runs the sequential chain for a single sample.
@@ -60,52 +49,36 @@ class AsyncCoABaseline:
         chunks = self._get_chunks(example)
         cu = ""  # Initial Communication Unit
 
-        # Limit concurrency to avoid hitting API rate limits
         async with self.semaphore:
             try:
                 # 1. Sequential Chain Loop
-                # We must process chunks in order because the output of Chunk N 
-                # becomes the input for Chunk N+1.
                 for chunk in chunks:
-                    cu = await worker.aprocess(chunk, example.question, previous_cu=cu)
+                    cu = await worker.async_process(
+                        chunk, example.question, previous_cu=cu
+                    )
 
                 # 2. Manager Synthesis
-                # Assuming ManagerAgent has an async 'agenerate_answer' or we wrap it
-                if hasattr(manager, "agenerate_answer"):
-                    return await manager.agenerate_answer(example.question, final_cu=cu)
-                
-                # Fallback if manager is sync
-                return await asyncio.to_thread(
-                    manager.generate_answer, example.question, final_cu=cu
+                return await manager.async_generate_answer(
+                    example.question, final_cu=cu
                 )
 
             except Exception as e:
-                # Safe ID access
-                sample_id = getattr(example, 'id', 'unknown')
+                sample_id = getattr(example, "id", "unknown")
                 print(f"Error in CoA chain for ID {sample_id}: {e}")
                 return ""
 
     async def run_batch(self, samples: List[HotpotQAExample]):
         print(f"🚀 Starting CoA processing for {len(samples)} samples...")
-        
-        # Initialize Client once per batch (Connection Pooling)
-        # This client is shared across all workers in this batch
-        shared_client = genai.Client(api_key=self.api_key)
-        
-        # Instantiate Agents with the shared client
-        worker = WorkerAgent(model_name=self.worker_model, client=shared_client)
-        
-        # Note: If ManagerAgent doesn't accept 'client', remove that arg.
-        # Assuming you update ManagerAgent similarly to WorkerAgent.
-        manager = ManagerAgent(model_name=self.manager_model) 
-        if hasattr(manager, 'client'): 
-             manager.client = shared_client
 
-        tasks = [
-            self.predict_async(sample, worker, manager) 
-            for sample in samples
-        ]
-        
+        # Instantiate Agents INSIDE the async loop.
+        # Each agent will create its own genai.Client inside its __init__.
+        # Because we are inside an async function, the clients will attach
+        # to the current loop, preventing the 'Unclosed connector' error.
+        worker = WorkerAgent(model_name=self.worker_model)
+        manager = ManagerAgent(model_name=self.manager_model)
+
+        tasks = [self.predict_async(sample, worker, manager) for sample in samples]
+
         results = await asyncio.gather(*tasks)
         return results
 
