@@ -5,10 +5,12 @@ Gemini model to answer the question based on the retrieved context.
 """
 
 import argparse
+import asyncio
+from itertools import islice
 import numpy as np
-from src.core.dataset import HotpotQAExample
+from src.core.dataset import HotpotQAExample, load_hotpot_qa_eval
 from src.core.full_context_baseline import AsyncFullContextBaseline
-from src.core.evaluation import evaluate
+from src.core.evaluation import evaluate_batch
 
 
 class RagBaseline(AsyncFullContextBaseline):
@@ -16,11 +18,12 @@ class RagBaseline(AsyncFullContextBaseline):
         self,
         model_name: str = "gemini-flash-latest",
         embedding_model: str = "text-embedding-004",
+        max_concurrency: int = 5,
     ):
-        super().__init__(model_name)
+        super().__init__(model_name, max_concurrency)
         self.embedding_model = embedding_model
 
-    def retrieve(self, example: HotpotQAExample, top_k: int = 2) -> str:
+    async def retrieve_async(self, example: HotpotQAExample, top_k: int = 2) -> str:
         """
         Retrieves the top_k most relevant paragraphs based on cosine similarity of embeddings.
         """
@@ -36,11 +39,15 @@ class RagBaseline(AsyncFullContextBaseline):
 
         # Embed question and docs in a single batch request
         inputs = [example.question] + docs
-        result = self.client.models.embed_content(
-            model=self.embedding_model, contents=inputs
-        )
+        try:
+            result = await self.client.aio.models.embed_content(
+                model=self.embedding_model, contents=inputs
+            )
+        except Exception as e:
+            print(f"Error embedding content: {e}")
+            return ""
 
-        if result.embeddings is None:
+        if not result.embeddings:
             return ""
 
         # Extract embeddings
@@ -58,25 +65,30 @@ class RagBaseline(AsyncFullContextBaseline):
         selected_docs = [docs[i] for i in top_indices]
         return "\n\n".join(selected_docs)
 
-    def predict(self, example: HotpotQAExample) -> str:
-        # 1. Retrieve relevant context
-        context_str = self.retrieve(example)
+    async def predict_async(self, example: HotpotQAExample) -> str:
+        async with self.semaphore:
+            # 1. Retrieve relevant context
+            context_str = await self.retrieve_async(example)
 
-        # 2. Construct Prompt
-        prompt = self.get_prompt(context_str, example.question)
+            # 2. Construct Prompt
+            prompt = self.get_prompt(context_str, example.question)
 
-        # 3. Generate Answer
-        response = self.client.models.generate_content(
-            model=self.model_name, contents=prompt
-        )
-        if not response or not response.candidates:
-            return ""
-        content = response.candidates[0].content
-        if not content or not content.parts:
-            return ""
-        text_result = "".join(part.text for part in content.parts if part.text)
-        if text_result:
-            return text_result.strip()
+            # 3. Generate Answer
+            try:
+                response = await self.client.aio.models.generate_content(
+                    model=self.model_name, contents=prompt
+                )
+                if not response or not response.candidates:
+                    return ""
+                content = response.candidates[0].content
+                if not content or not content.parts:
+                    return ""
+                text_result = "".join(part.text for part in content.parts if part.text)
+                if text_result:
+                    return text_result.strip()
+            except Exception as e:
+                print(f"Error generating content: {e}")
+                return ""
         return ""
 
 
@@ -87,5 +99,15 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    baseline = RagBaseline()
-    evaluate(baseline, args.num_samples)
+    # 1. Load Data
+    dataset_iterator = load_hotpot_qa_eval()
+    samples = list(islice(dataset_iterator, args.num_samples))
+
+    # 2. Initialize
+    baseline = RagBaseline(max_concurrency=10)
+
+    # 3. Run Async
+    results = asyncio.run(baseline.run_batch(samples))
+
+    # 4. Evaluate Results
+    evaluate_batch(samples, results)
