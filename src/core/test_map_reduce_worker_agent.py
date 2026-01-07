@@ -24,7 +24,8 @@ class TestMapReduceWorkerAgent(unittest.IsolatedAsyncioTestCase):
                 MapReduceWorkerAgent()
 
     @patch("src.core.map_reduce_worker_agent.genai.Client")
-    async def test_process_success(self, mock_client_cls):
+    async def test_async_process_success(self, mock_client_cls):
+        # Setup Mock Response
         mock_client = mock_client_cls.return_value
         mock_response = MagicMock()
         mock_part = MagicMock()
@@ -33,7 +34,9 @@ class TestMapReduceWorkerAgent(unittest.IsolatedAsyncioTestCase):
         mock_client.aio.models.generate_content = AsyncMock(return_value=mock_response)
 
         agent = MapReduceWorkerAgent()
-        result = await agent.process("Chunk text", "Question?")
+
+        # Call the new async method
+        result = await agent.async_process("Chunk text", "Question?")
 
         self.assertEqual(result, "Extracted info")
 
@@ -45,7 +48,7 @@ class TestMapReduceWorkerAgent(unittest.IsolatedAsyncioTestCase):
         self.assertIn(NO_INFO_TOKEN, prompt)
 
     @patch("src.core.map_reduce_worker_agent.genai.Client")
-    async def test_process_no_info(self, mock_client_cls):
+    async def test_async_process_no_info(self, mock_client_cls):
         mock_client = mock_client_cls.return_value
         mock_response = MagicMock()
         mock_part = MagicMock()
@@ -54,27 +57,27 @@ class TestMapReduceWorkerAgent(unittest.IsolatedAsyncioTestCase):
         mock_client.aio.models.generate_content = AsyncMock(return_value=mock_response)
 
         agent = MapReduceWorkerAgent()
-        result = await agent.process("Chunk text", "Question?")
+        result = await agent.async_process("Chunk text", "Question?")
         self.assertEqual(result, NO_INFO_TOKEN)
 
     @patch("src.core.map_reduce_worker_agent.genai.Client")
-    async def test_process_empty_response(self, mock_client_cls):
+    async def test_async_process_empty_response(self, mock_client_cls):
         mock_client = mock_client_cls.return_value
         mock_client.aio.models.generate_content = AsyncMock(return_value=None)
 
         agent = MapReduceWorkerAgent()
-        result = await agent.process("Chunk text", "Question?")
+        result = await agent.async_process("Chunk text", "Question?")
         self.assertEqual(result, NO_INFO_TOKEN)
 
     @patch("src.core.map_reduce_worker_agent.genai.Client")
-    async def test_process_exception(self, mock_client_cls):
+    async def test_async_process_exception(self, mock_client_cls):
         mock_client = mock_client_cls.return_value
         mock_client.aio.models.generate_content = AsyncMock(
             side_effect=Exception("API Error")
         )
 
         agent = MapReduceWorkerAgent()
-        result = await agent.process("Chunk text", "Question?")
+        result = await agent.async_process("Chunk text", "Question?")
         self.assertEqual(result, NO_INFO_TOKEN)
 
 
