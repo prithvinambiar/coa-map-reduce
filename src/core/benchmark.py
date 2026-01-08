@@ -87,10 +87,10 @@ async def main():
 
     # 2. Define Models
     models = [
-        ("Full Context (Baseline)", AsyncFullContextBaseline(max_concurrency=100)),
-        ("RAG (Baseline)", RagBaseline(max_concurrency=100)),
-        ("CoA (Baseline)", AsyncCoABaseline(max_concurrency=100)),
-        ("CoA Map-Reduce (Ours)", AsyncCoAMapReduce(max_concurrency=100)),
+        ("Full Context (Baseline)", AsyncFullContextBaseline(max_concurrency=50)),
+        ("RAG (Baseline)", RagBaseline(max_concurrency=50)),
+        ("CoA (Baseline)", AsyncCoABaseline(max_concurrency=10)),
+        ("CoA Map-Reduce (Ours)", AsyncCoAMapReduce(max_concurrency=10)),
     ]
 
     # 3. Run Benchmarks
