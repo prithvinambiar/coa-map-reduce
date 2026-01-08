@@ -1,0 +1,5 @@
+Model,Total Time (s),Avg Latency (s),Exact Match,F1 Score
+Full Context (Baseline),11.31,0.11,0.45,0.6129328566992451
+RAG (Baseline),11.25,0.11,0.31,0.46402766470835743
+CoA (Baseline),65.93,0.66,0.52,0.6826683802648412
+CoA Map-Reduce (Ours),57.45,0.57,0.02,0.023333333333333334

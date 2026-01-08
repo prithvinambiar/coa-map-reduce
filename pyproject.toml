@@ -9,6 +9,8 @@ dependencies = [
     "pydantic>=2.12.5",
     "google-genai",
     "numpy",
+    "matplotlib",
+    "tabulate",
 ]
 
 [[tool.uv.index]]
